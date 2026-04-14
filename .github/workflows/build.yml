@@ -97,49 +97,63 @@ jobs:
           git config --global color.ui   false
 
       # ----------------------------------------------------------------
-      # 6. Run Exact Commands from README: Clone & sync source
+      # 6. Native Base Source Setup
       # ----------------------------------------------------------------
-      - name: Clone & sync source
+      - name: Native Base Source Setup
         run: |
           mkdir -p ~/OrangeFox_14
           cd ~/OrangeFox_14
-          git clone https://gitlab.com/OrangeFox/sync.git
-          cd sync
-          ./orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
+          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14
+          repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
+          
+      # ----------------------------------------------------------------
+      # 7. Apply Essential OrangeFox Patches
+      # ----------------------------------------------------------------
+      - name: Apply Essential OrangeFox Patches
+        run: |
+          cd ~/OrangeFox_14
+          git clone https://gitlab.com/OrangeFox/sync.git sync_scripts/sync
+          cd build/make && patch -p1 < ../../sync_scripts/sync/patches/patch-manifest-fox_14.1.diff && cd ../../
 
       # ----------------------------------------------------------------
-      # 7. Run Exact Commands from README: Clone device tree
+      # 8. Download Native OrangeFox R12 Source Code
+      # ----------------------------------------------------------------
+      - name: Download Native OrangeFox R12 Source Code
+        run: |
+          cd ~/OrangeFox_14
+          git clone https://gitlab.com/OrangeFox/vendor/recovery.git -b fox_14.1-R12-new vendor/recovery
+
+      # ----------------------------------------------------------------
+      # 9. Clone device tree
       # ----------------------------------------------------------------
       - name: Clone device tree
         run: |
-          cd ~/fox_14.1/device
+          cd ~/OrangeFox_14/device
           mkdir -p oneplus
           cd oneplus
           # We use the code we already checked out as it has the latest commits
           cp -r $GITHUB_WORKSPACE/DT ktm
 
       # ----------------------------------------------------------------
-      # 8. Run Exact Commands from README: BUILD
+      # 10. BUILD
       # ----------------------------------------------------------------
       - name: BUILD
         id: build
         run: |
           set -o pipefail
           
-          cd ~/fox_14.1
+          cd ~/OrangeFox_14
           
           # Inject workflow type via environment implicitly
           export FOX_BUILD_TYPE="${{ github.event.inputs.BUILD_TYPE || 'Stable' }}"
           
           source build/envsetup.sh
-          # Standard verified lunch target
           lunch ${{ env.PRODUCT_NAME }}-eng
           
-          # Build recovery image
           mka recoveryimage -j$(nproc --all) 2>&1 | tee build.log
 
           # Surface the output paths
-          OUT_DIR=~/fox_14.1/out/target/product/${{ env.DEVICE }}
+          OUT_DIR=~/OrangeFox_14/out/target/product/${{ env.DEVICE }}
           echo "OUT_DIR=$OUT_DIR" >> $GITHUB_ENV
 
           IMG=$(find "$OUT_DIR" -maxdepth 1 -name "OrangeFox*.img" | head -1)
@@ -172,7 +186,7 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: OrangeFox-R11.3.1_${{ env.DEVICE }}_build-${{ github.run_number }}
+          name: OrangeFox-R12_${{ env.DEVICE }}_build-${{ github.run_number }}
           path: |
             ${{ env.RECOVERY_IMG }}
             ${{ env.RECOVERY_ZIP }}
@@ -192,9 +206,9 @@ jobs:
             ${{ github.event.inputs.RELEASE_TAG != '' &&
                 github.event.inputs.RELEASE_TAG ||
                 format('build-{0}', github.run_number) }}
-          name: OrangeFox R11.3.1 [${{ env.DEVICE }}] – Build ${{ github.run_number }}
+          name: OrangeFox R12 [${{ env.DEVICE }}] – Build ${{ github.run_number }}
           body: |
-            ## OrangeFox Recovery R11.3.1 for OnePlus Ace 6 (`ktm`)
+            ## OrangeFox Recovery R12 for OnePlus Ace 6 (`ktm`)
 
             **Build type:** ${{ github.event.inputs.BUILD_TYPE || 'Stable' }}
             **Vendor branch:** `fox_14.1`

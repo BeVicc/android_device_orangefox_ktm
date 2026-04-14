@@ -13,27 +13,34 @@
 - [X] Touch
 - [X] Decryption
 
-# Building
+# Building (OrangeFox R12)
 
-### Clone & sync source
-```
+### Setup build environment
+```bash
 mkdir -p ~/OrangeFox_14
 cd ~/OrangeFox_14
-git clone https://gitlab.com/OrangeFox/sync.git
-cd sync
-./orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
+
+# Sync TWRP base and patch for OrangeFox
+repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14
+repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
+git clone https://gitlab.com/OrangeFox/sync.git sync_scripts/sync
+cd build/make && patch -p1 < ../../sync_scripts/sync/patches/patch-manifest-fox_14.1.diff && cd ../../
+
+# Download latest OrangeFox R12 Code
+git clone https://gitlab.com/OrangeFox/vendor/recovery.git -b fox_14.1-R12-new vendor/recovery
 ```
+
 ### Clone device tree
-```
-cd ~/fox_14.1/device
+```bash
+cd ~/OrangeFox_14/device
 mkdir -p oneplus
 cd oneplus
 git clone https://github.com/NullCode1337/android_device_orangefox_ktm ktm
 ```
 ### BUILD
-```
-cd ~/fox_14.1
+```bash
+cd ~/OrangeFox_14
 source build/envsetup.sh
-lunch twrp_ktm-ap2a-eng
-mka adbd recoveryimage
+lunch twrp_ktm-eng
+mka recoveryimage -j$(nproc --all)
 ```
