@@ -97,52 +97,38 @@ jobs:
           git config --global color.ui   false
 
       # ----------------------------------------------------------------
-      # 6. Native Base Source Setup
+      # 6. Native R12 Script Substitution
       # ----------------------------------------------------------------
-      - name: Native Base Source Setup
+      - name: Clone & sync source
         run: |
           mkdir -p ~/OrangeFox_14
           cd ~/OrangeFox_14
-          repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14
-          repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
+          git clone https://gitlab.com/OrangeFox/sync.git
+          cd sync
+          # Modify the script to natively fetch the R12 codebase
+          sed -i 's/git clone $URL -b $FOX_BRANCH "$dest";/git clone $URL -b fox_14.1-R12-new "$dest";/g' orangefox_sync.sh
+          ./orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
           
       # ----------------------------------------------------------------
-      # 7. Apply Essential OrangeFox Patches
-      # ----------------------------------------------------------------
-      - name: Apply Essential OrangeFox Patches
-        run: |
-          cd ~/OrangeFox_14
-          git clone https://gitlab.com/OrangeFox/sync.git sync_scripts/sync
-          cd build/make && patch -p1 < ../../sync_scripts/sync/patches/patch-manifest-fox_14.1.diff && cd ../../
-
-      # ----------------------------------------------------------------
-      # 8. Download Native OrangeFox R12 Source Code
-      # ----------------------------------------------------------------
-      - name: Download Native OrangeFox R12 Source Code
-        run: |
-          cd ~/OrangeFox_14
-          git clone https://gitlab.com/OrangeFox/vendor/recovery.git -b fox_14.1-R12-new vendor/recovery
-
-      # ----------------------------------------------------------------
-      # 9. Clone device tree
+      # 7. Clone device tree
       # ----------------------------------------------------------------
       - name: Clone device tree
         run: |
-          cd ~/OrangeFox_14/device
+          cd ~/fox_14.1/device
           mkdir -p oneplus
           cd oneplus
           # We use the code we already checked out as it has the latest commits
           cp -r $GITHUB_WORKSPACE/DT ktm
 
       # ----------------------------------------------------------------
-      # 10. BUILD
+      # 8. BUILD
       # ----------------------------------------------------------------
       - name: BUILD
         id: build
         run: |
           set -o pipefail
           
-          cd ~/OrangeFox_14
+          cd ~/fox_14.1
           
           # Inject workflow type via environment implicitly
           export FOX_BUILD_TYPE="${{ github.event.inputs.BUILD_TYPE || 'Stable' }}"
@@ -153,7 +139,7 @@ jobs:
           mka recoveryimage -j$(nproc --all) 2>&1 | tee build.log
 
           # Surface the output paths
-          OUT_DIR=~/OrangeFox_14/out/target/product/${{ env.DEVICE }}
+          OUT_DIR=~/fox_14.1/out/target/product/${{ env.DEVICE }}
           echo "OUT_DIR=$OUT_DIR" >> $GITHUB_ENV
 
           IMG=$(find "$OUT_DIR" -maxdepth 1 -name "OrangeFox*.img" | head -1)

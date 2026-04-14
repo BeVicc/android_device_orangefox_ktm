@@ -15,31 +15,27 @@
 
 # Building (OrangeFox R12)
 
-### Setup build environment
+### Clone & sync source
 ```bash
 mkdir -p ~/OrangeFox_14
 cd ~/OrangeFox_14
-
-# Sync TWRP base and patch for OrangeFox
-repo init --depth=1 -u https://github.com/minimal-manifest-twrp/platform_manifest_twrp_aosp.git -b twrp-14
-repo sync -c --no-clone-bundle --no-tags --optimized-fetch --prune --force-sync -j$(nproc --all)
-git clone https://gitlab.com/OrangeFox/sync.git sync_scripts/sync
-cd build/make && patch -p1 < ../../sync_scripts/sync/patches/patch-manifest-fox_14.1.diff && cd ../../
-
-# Download latest OrangeFox R12 Code
-git clone https://gitlab.com/OrangeFox/vendor/recovery.git -b fox_14.1-R12-new vendor/recovery
+git clone https://gitlab.com/OrangeFox/sync.git
+cd sync
+# Modify the script to natively fetch the R12 codebase
+sed -i 's/git clone $URL -b $FOX_BRANCH "$dest";/git clone $URL -b fox_14.1-R12-new "$dest";/g' orangefox_sync.sh
+./orangefox_sync.sh --branch 14.1 --path ~/fox_14.1
 ```
 
 ### Clone device tree
 ```bash
-cd ~/OrangeFox_14/device
+cd ~/fox_14.1/device
 mkdir -p oneplus
 cd oneplus
 git clone https://github.com/NullCode1337/android_device_orangefox_ktm ktm
 ```
 ### BUILD
 ```bash
-cd ~/OrangeFox_14
+cd ~/fox_14.1
 source build/envsetup.sh
 lunch twrp_ktm-eng
 mka recoveryimage -j$(nproc --all)
